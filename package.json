@@ -1,0 +1,73 @@
+{
+  "name": "med-prce-el",
+  "version": "1.0.0",
+  "main": "main.js",
+  "author": {
+    "name": "Kashif Ahmed",
+    "email": "imrkash@gmail.com"
+  },
+  "scripts": {
+    "start:react": "vite",
+    "start": "concurrently -k \"cross-env NODE_ENV=development vite\" \"wait-on tcp:5173 && cross-env NODE_ENV=development electron .\"",
+    "build": "vite build",
+    "electron:build": "npm run build && electron-builder --linux",
+    "electron:build:deb": "npm run build && electron-builder --linux deb",
+    "electron:build:rpm": "npm run build && electron-builder --linux rpm",
+    "electron:build:AppImage": "npm run build && electron-builder --linux AppImage"
+  },
+  "build": {
+    "appId": "com.medprecel.demo",
+    "productName": "MedPrecEl",
+    "directories": {
+      "output": "dist_electron"
+    },
+    "files": [
+      "dist/**/*",
+      "main.js"
+    ],
+    "linux": {
+      "executableName": "medprecel",
+      "category": "Utility",
+      "target": [
+        "deb"
+      ],
+      "artifactName": "${productName}-${version}.${ext}",
+      "desktop": {
+        "Name": "MedPrecEl",
+        "Type": "Application",
+        "Terminal": false,
+        "Icon": "/usr/share/icons/hicolor/512x512/apps/medprecel",
+        "Categories": "Utility",
+        "StartupWMClass": "medprecel"
+      }
+    },
+    "deb": {
+      "depends": [
+        "libnotify4",
+        "libxtst6",
+        "libnss3",
+        "libsecret-1-0",
+        "libgtk-3-0",
+        "libxss1",
+        "libx11-xcb1",
+        "libdrm2"
+      ]
+    }
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.0",
+    "autoprefixer": "^10.4.16",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1",
+    "postcss": "^8.4.31",
+    "tailwindcss": "^3.3.5",
+    "vite": "^5.0.0",
+    "wait-on": "^7.2.0"
+  }
+}
