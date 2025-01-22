@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-
+import api from '../api';
 
 
 const PrescriptionList = () => {
@@ -7,11 +7,12 @@ const PrescriptionList = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState({
-    patient_id: '',
-    doctor_id: ''
+    patient_id: 16,
+    doctor_id: 3
   });
 
   const fetchPrescriptions = async () => {
+    console.log('Fetching prescriptions...');
     try {
       setLoading(true);
       const query = {};
@@ -22,8 +23,41 @@ const PrescriptionList = () => {
       if (filters.doctor_id) {
         query.doctor_id = parseInt(filters.doctor_id);
       }
+      if (query.patient_id && query.doctor_id) {
+        try {
+          const prescriptionResponse = await api.prescriptions.get(query);
+          if (prescriptionResponse?.data.length>0) {
+            prescriptionResponse?.data.map(prescription=>{
+              console.log(prescription)
+              const presDate = new Date(prescription.date)
+              const presObject = {
+                _id: `prec-${prescription.id}`,
+                patient_id: prescription.patient.id,
+                doctor_id: prescription.doctor.id,
+                date: `${presDate.getFullYear()}-${presDate.getMonth()+1}-${presDate.getDate()}`,
+                content: prescription.content,
+                created_at: prescription.created_at
+              }
 
+              console.log("Adding new object")
+              console.log(presObject)
+              console.log("Adding new object")
+              window.electron.db.prescriptions.add(presObject);
+
+            })
+          } else {
+            throw new Error(prescriptionResponse.error);
+          }
+          
+          console.log(prescriptionResponse);
+        } catch (err) {
+          console.error('Error fetching prescription:', err);
+        }
+      }
+      
       const result = await window.electron.db.prescriptions.search(query);
+      console.log('Fetching prescriptions from database...');
+      console.log(result);
       if (result.success) {
         setPrescriptions(result.data);
       } else {
@@ -38,7 +72,7 @@ const PrescriptionList = () => {
 
   useEffect(() => {
     fetchPrescriptions();
-  }, [filters]);
+  }, []);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
@@ -95,6 +129,12 @@ const PrescriptionList = () => {
             />
           </div>
         </div>
+        <button 
+          onClick={fetchPrescriptions}
+          className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        >
+          Apply Filters
+        </button>
       </div>
 
       {/* Prescriptions List */}
@@ -107,6 +147,9 @@ const PrescriptionList = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Id
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Date
                 </th>
@@ -127,6 +170,9 @@ const PrescriptionList = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {prescriptions.map((prescription) => (
                 <tr key={prescription._id}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {prescription._id}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {new Date(prescription.date).toLocaleDateString()}
                   </td>

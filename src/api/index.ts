@@ -62,6 +62,9 @@ const api = {
         body: JSON.stringify(credentials)
       }),
   },
+  prescriptions: {
+    get: (query: {doctor_id: number, patient_id: number}) => api.request<Prescription[]>(`/prescriptions?patient_id=${query.patient_id}&doctor_id=${query.doctor_id}`)
+  },
 };
 
 export default api;

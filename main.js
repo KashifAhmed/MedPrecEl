@@ -6,7 +6,7 @@ const PouchFind = require('pouchdb-find');
 
 // Initialize PouchDB
 PouchDB.plugin(PouchFind);
-let db = new PouchDB('prescriptions');
+let db = new PouchDB('medDB_PrecP');
 let syncInProgress = false;
 
 const ensureDirectoryExists = (filePath) => {
@@ -19,29 +19,11 @@ const ensureDirectoryExists = (filePath) => {
 // Initialize database with indexes
 const initializeDatabase = async () => {
   try {
-    await db.createIndex({
-      index: {
-        fields: ['date']
-      }
-    });
-    
-    await db.createIndex({
-      index: {
-        fields: ['patient_id']
-      }
-    });
-
-    await db.createIndex({
-      index: {
-        fields: ['doctor_id']
-      }
-    });
-
-    await db.createIndex({
-      index: {
-        fields: ['synced']
-      }
-    });
+    // await db.createIndex({
+    //   index: {
+    //     fields: ['date']
+    //   }
+    // });
 
     console.log('Database indexes created successfully');
   } catch (error) {
@@ -55,9 +37,11 @@ async function syncToServer() {
   try {
     syncInProgress = true;
     const result = await db.find({
-      selector: { synced: false }
+      selector: {}
     });
 
+    console.log('Documents to sync--:', result.docs);
+    return
     for (const doc of result.docs) {
       try {
         const tokenPath = path.join(app.getPath('userData'), 'token.json');
@@ -70,6 +54,7 @@ async function syncToServer() {
         const { token } = JSON.parse(tokenData);
 
         const body = {
+          _id: doc._id,
           content: doc.content,
           date: doc.date,
           doctor_id: doc.doctor_id,
@@ -165,9 +150,32 @@ ipcMain.handle('db-prescription-create', async (event, prescription) => {
     
     return { success: true, id: result.id };
   } catch (error) {
+    if(error.status === 409){
+      console.log("It's a conflict need to handle", docId);
+      return { success: true, id: error.id };
+    }
     return { success: false, error: error.message };
   }
 });
+
+
+ipcMain.handle('db-prescription-add', async (event, prescription) => {
+  try {
+    const doc = {
+      ...prescription,
+      synced: true
+    };
+    const result = await db.put(doc);
+    console.log('Document added successfully:', result);
+
+    return { success: true, id: result.id };
+  } catch (error) {
+    console.error('Error adding prescription:');
+    console.error(error);
+    return { success: false, error: error.message };
+  }
+});
+
 
 ipcMain.handle('db-prescription-search', async (event, query) => {
   try {
@@ -181,8 +189,7 @@ ipcMain.handle('db-prescription-search', async (event, query) => {
     }
 
     const result = await db.find({
-      selector,
-      sort: [{ date: 'desc' }]
+      selector
     });
     
     return { success: true, data: result.docs };

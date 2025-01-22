@@ -1,27 +1,7 @@
-// src/db/prescriptions.ts
-import PouchDB from 'pouchdb';
-import PouchFind from 'pouchdb-find';
-PouchDB.plugin(PouchFind);
+import { db } from './index';
 
-interface Prescription {
-  content: string;
-  date: string;
-  doctor_id: number;
-  patient_id: number;
-  synced?: boolean;
-}
-
-class PrescriptionDB {
-  private db: PouchDB.Database;
-  private apiUrl = 'https://stage.app.medlucy.com/api/prescriptions';
-  private syncInProgress = false;
-
-  constructor() {
-    this.db = new PouchDB('prescriptions');
-    this.setupSync();
-  }
-
-  async create(prescription: Prescription) {
+export const prescriptionDB = {
+  async create(prescription: any) {
     try {
       const doc = {
         ...prescription,
@@ -30,73 +10,43 @@ class PrescriptionDB {
         createdAt: new Date().toISOString()
       };
 
-      await this.db.put(doc);
-
-      // Try immediate sync if online
-      if (navigator.onLine) {
-        this.startSync();
+      const result = await db.put(doc);
+      return { success: true, id: result.id };
+    } catch (error: any) {
+      if(error.status === 409){
+        console.log("It's a conflict need to handle", error);
+        return { success: true, id: error.id };
       }
-
-      return { success: true, id: doc._id };
-    } catch (error) {
-      console.error('Error creating prescription:', error);
-      return { success: false, error };
+      return { success: false, error: error.message };
     }
-  }
+  },
 
-  private async syncToServer() {
-    if (this.syncInProgress) return;
-    
+  async search(query: any) {
     try {
-      this.syncInProgress = true;
-      const token  = await localStorage.getItem('token')
-
-      const result: any = await this.db.find({
-        selector: { synced: false }
-      });
-
-      for (const doc of result.docs) {
-        try {
-          const response: any = await fetch(this.apiUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              content: doc.content,
-              date: doc.date,
-              doctor_id: doc.doctor_id,
-              patient_id: doc.patient_id
-            })
-          });
-          console.log('Sync response:', response)
-          if (response.id) {
-            await this.db.put({
-              ...doc,
-              synced: true
-            });
-          }
-        } catch (error) {
-          console.error('Sync failed for doc:', doc._id);
-        }
+      const selector: any = {};
+      
+      if (query.patient_id) {
+        selector.patient_id = parseInt(query.patient_id);
       }
-    } finally {
-      this.syncInProgress = false;
+      if (query.doctor_id) {
+        selector.doctor_id = parseInt(query.doctor_id);
+      }
+
+      const result = await db.find({ selector });
+      return { success: true, data: result.docs };
+    } catch (error) {
+      console.error('Search error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async clear() {
+    try {
+      await db.destroy();
+      await new Promise(resolve => setTimeout(resolve, 100));
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
     }
   }
-
-  private startSync() {
-    if (!this.syncInProgress) {
-      this.syncToServer();
-    }
-  }
-
-  private setupSync() {
-    window.addEventListener('online', () => {
-      this.startSync();
-    });
-  }
-}
-
-export const prescriptionDB = new PrescriptionDB();
+};

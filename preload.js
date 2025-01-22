@@ -8,7 +8,8 @@ contextBridge.exposeInMainWorld('electron', {
     prescriptions: {
       create: (data) => ipcRenderer.invoke('db-prescription-create', data),
       clear: () => ipcRenderer.invoke('db-prescription-clear'),
-      search: (query) => ipcRenderer.invoke('db-prescription-search', query)
+      search: (query) => ipcRenderer.invoke('db-prescription-search', query),
+      add: (data) => ipcRenderer.invoke('db-prescription-add', data),
     }
   }
 })
