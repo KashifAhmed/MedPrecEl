@@ -27,6 +27,7 @@ const PrescriptionList = () => {
     patient_id: 16,
     doctor_id: 3
   });
+  const [deleteConfirmation, setDeleteConfirmation] = useState({ show: false});
 
   const handleSearch = async () => {
     const query = {
@@ -86,9 +87,7 @@ const PrescriptionList = () => {
     } catch (error) {
       console.error('Search error:', error);
     }
-   };
-  
-  
+  };
   
   const fetchPrescriptionsFromAPI = async (query) => {
     let allPrescriptions = [];
@@ -126,9 +125,15 @@ const PrescriptionList = () => {
     return newPrescriptions;
   };
   
-  
-  
-  
+  const handleDelete = async (id) => {
+    console.log('Deleting prescription:', id);
+    if (id) {
+      await window.electron.db.prescriptions.delete(id);
+      setPrescriptions(prev => prev.filter(p => p._id !== id));
+      setDeleteConfirmation({ show: false});
+    }
+  };
+
   useEffect(() => {
     handleSearch();
   }, []);
@@ -229,9 +234,23 @@ const PrescriptionList = () => {
                     </DialogContent>
                   </Dialog>
 
-                  <Button variant="ghost" size="icon" className="text-red-500">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <Trash2 className="h-4 w-4 text-red-500" onClick={() => setDeleteConfirmation({ show: true })} />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Confirm Deletion</DialogTitle>
+                      </DialogHeader>
+                      <p>Are you sure you want to delete this prescription?</p>
+                      <div className="flex justify-end gap-2 mt-4">
+                        <Button variant="outline" onClick={() => setDeleteConfirmation({ show: false})}>Cancel</Button>
+                        <Button variant="destructive" onClick={()=>handleDelete(prescription._id)}>Delete</Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </div>
             </CardContent>

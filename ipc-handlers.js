@@ -137,6 +137,44 @@ async function setupIpcHandlers() {
         }
     });
 
+    // Delete prescription handler
+    ipcMain.handle('db-prescription-delete', async (event, id) => {
+        try {
+            const doc = await db.get(id);
+            const deletedDoc = {
+                ...doc,
+                action: 'delete',
+                synced:false,
+                lastModified: new Date().toISOString()
+            };
+            const result = await db.put(deletedDoc);
+            startSync();
+            console.log(`db-prescription-delete id: ${id}`)
+            return { success: true, id: result.id };
+        } catch (error) {
+            console.error('Prescription deletion failed:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Update prescription handler
+    ipcMain.handle('db-prescription-update', async (event, updatedData) => {
+        try {
+            const existingDoc = await db.get(updatedData._id);
+            const updatedDoc = {
+                ...existingDoc,
+                ...updatedData,
+                action: 'update',
+                lastModified: new Date().toISOString()
+            };
+            const result = await db.put(updatedDoc);
+            startSync();
+            return { success: true, id: result.id };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    });
+
     // Token management handlers
     setupTokenHandlers();
 
