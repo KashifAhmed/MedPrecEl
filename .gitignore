@@ -3,4 +3,4 @@ dist
 dist_electron
 .env
 prescriptions
-prescriptions-meview-*
+medDB_PrecP

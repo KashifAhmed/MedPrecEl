@@ -1,8 +1,11 @@
 import { useState, FormEvent, ChangeEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 
+        
 
 
 const PrescriptionForm = () => {
+  const navigate = useNavigate();
   const [prescriptionData, setPrescriptionData] = useState({
     content: 'Panadol',
     date: new Date().toISOString().split('T')[0],
@@ -28,6 +31,7 @@ const PrescriptionForm = () => {
           doctor_id: 3,
           patient_id: 16
         });
+        navigate('/prescriptions');        
       } else {
         throw new Error('Failed to save prescription');
       }

@@ -37,11 +37,11 @@ async function syncToServer() {
   try {
     syncInProgress = true;
     const result = await db.find({
-      selector: {}
+      selector: {synced: false}
     });
 
     console.log('Documents to sync--:', result.docs);
-    return
+    
     for (const doc of result.docs) {
       try {
         const tokenPath = path.join(app.getPath('userData'), 'token.json');
