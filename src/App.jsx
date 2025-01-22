@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Outlet, Navigate  } from 'react-router-dom';
+import { Routes, Route, Outlet, Navigate, HashRouter} from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import AppHeader from './components/AppHeader';
@@ -9,7 +9,7 @@ import PrescriptionList from './feature/prescriptions';
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <HashRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route
@@ -32,7 +32,7 @@ function App() {
             </Route>
           </Route>
         </Routes>
-      </BrowserRouter>
+      </HashRouter>
     </AuthProvider>
   );
 }

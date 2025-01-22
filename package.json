@@ -23,7 +23,8 @@
     },
     "files": [
       "dist/**/*",
-      "main.js"
+      "main.js",
+      "preload.js"
     ],
     "linux": {
       "executableName": "medprecel",
@@ -52,7 +53,8 @@
         "libx11-xcb1",
         "libdrm2"
       ]
-    }
+    },
+    "asar": true
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
