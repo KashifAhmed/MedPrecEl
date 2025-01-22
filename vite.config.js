@@ -1,3 +1,4 @@
+import path from "path"
 const { defineConfig } = require('vite');
 const react = require('@vitejs/plugin-react');
 
@@ -12,5 +13,10 @@ module.exports = defineConfig({
     port: 5173,
     strictPort: true,
     host: true
-  }
+  },
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
 });

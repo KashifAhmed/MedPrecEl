@@ -1,202 +1,171 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
-
+import { Input } from "../components/ui/input";
+import { Button } from "../components/ui/button";
+import { Card, CardContent } from "../components/ui/card";
+import { 
+  Eye, 
+  Trash2, 
+  Edit,
+  Search,
+  CheckCircle2,
+  Clock
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../components/ui/dialog";
+import { Textarea } from "../components/ui/textarea";
 
 const PrescriptionList = () => {
   const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [filters, setFilters] = useState({
-    patient_id: 16,
-    doctor_id: 3
+  const [searchFilters, setSearchFilters] = useState({
+    patient_id: '',
+    doctor_id: ''
   });
+  const [editPrescription, setEditPrescription] = useState(null);
 
-  const fetchPrescriptions = async () => {
-    console.log('Fetching prescriptions...');
+  const handleSearch = async () => {
     try {
       setLoading(true);
       const query = {};
       
-      if (filters.patient_id) {
-        query.patient_id = parseInt(filters.patient_id);
+      if (searchFilters.patient_id) {
+        query.patient_id = parseInt(searchFilters.patient_id);
       }
-      if (filters.doctor_id) {
-        query.doctor_id = parseInt(filters.doctor_id);
+      if (searchFilters.doctor_id) {
+        query.doctor_id = parseInt(searchFilters.doctor_id);
       }
+
       if (query.patient_id && query.doctor_id) {
-        try {
-          const prescriptionResponse = await api.prescriptions.get(query);
-          if (prescriptionResponse?.data.length>0) {
-            prescriptionResponse?.data.map(prescription=>{
-              console.log(prescription)
-              const presDate = new Date(prescription.date)
-              const presObject = {
-                _id: `prec-${prescription.id}`,
-                patient_id: prescription.patient.id,
-                doctor_id: prescription.doctor.id,
-                date: `${presDate.getFullYear()}-${presDate.getMonth()+1}-${presDate.getDate()}`,
-                content: prescription.content,
-                created_at: prescription.created_at
-              }
-
-              console.log("Adding new object")
-              console.log(presObject)
-              console.log("Adding new object")
-              window.electron.db.prescriptions.add(presObject);
-
-            })
-          } 
-          
-          console.log(prescriptionResponse);
-        } catch (err) {
-          console.error('Error fetching prescription:', err);
+        const prescriptionResponse = await api.prescriptions.get(query);
+        if (prescriptionResponse?.data.length > 0) {
+          prescriptionResponse?.data.forEach(prescription => {
+            const presDate = new Date(prescription.date);
+            const presObject = {
+              _id: `prec-${prescription.id}`,
+              patient_id: prescription.patient.id,
+              doctor_id: prescription.doctor.id,
+              date: `${presDate.getFullYear()}-${presDate.getMonth()+1}-${presDate.getDate()}`,
+              content: prescription.content,
+              created_at: prescription.created_at
+            };
+            window.electron.db.prescriptions.add(presObject);
+          });
         }
       }
       
       const result = await window.electron.db.prescriptions.search(query);
-      console.log('Fetching prescriptions from database...');
-      console.log(result);
       if (result.success) {
         setPrescriptions(result.data);
-      } else {
-        throw new Error(result.error);
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch prescriptions');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchPrescriptions();
+    handleSearch();
   }, []);
 
-  const handleFilterChange = (e) => {
-    const { name, value } = e.target;
-    setFilters(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <p className="text-gray-500">Loading prescriptions...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="bg-red-50 p-4 rounded-md">
-        <p className="text-red-500">{error}</p>
-      </div>
-    );
+    return <div className="flex justify-center items-center h-64">Loading...</div>;
   }
 
   return (
-    <div className="space-y-6">
-      {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow space-y-4">
-        <h2 className="text-lg font-semibold">Filters</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Patient ID
-            </label>
-            <input
+    <div className="space-y-4 p-4">
+      <Card>
+        <CardContent className="pt-4">
+          <div className="flex gap-4">
+            <Input
               type="number"
               name="patient_id"
-              value={filters.patient_id}
-              onChange={handleFilterChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              value={searchFilters.patient_id}
+              onChange={(e) => setSearchFilters(prev => ({ ...prev, [e.target.name]: e.target.value }))}
+              placeholder="Patient ID"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Doctor ID
-            </label>
-            <input
+            <Input
               type="number"
               name="doctor_id"
-              value={filters.doctor_id}
-              onChange={handleFilterChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              value={searchFilters.doctor_id}
+              onChange={(e) => setSearchFilters(prev => ({ ...prev, [e.target.name]: e.target.value }))}
+              placeholder="Doctor ID"
             />
+            <Button onClick={handleSearch}>
+              <Search className="h-4 w-4" />
+            </Button>
           </div>
-        </div>
-        <button 
-          onClick={fetchPrescriptions}
-          className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
-          Apply Filters
-        </button>
-      </div>
+        </CardContent>
+      </Card>
 
-      {/* Prescriptions List */}
-      <div className="bg-white shadow overflow-hidden rounded-lg">
-        {prescriptions.length === 0 ? (
-          <div className="p-4 text-center text-gray-500">
-            No prescriptions found
-          </div>
-        ) : (
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Id
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Patient ID
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Doctor ID
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Content
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {prescriptions.map((prescription) => (
-                <tr key={prescription._id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {prescription._id}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(prescription.date).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {prescription.patient_id}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {prescription.doctor_id}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {prescription.content}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      prescription.synced 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {prescription.synced ? 'Synced' : 'Pending'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+      <div className="space-y-2">
+        {prescriptions.map((prescription) => (
+          <Card key={prescription._id}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-4">
+                {prescription.synced ? 
+                  <CheckCircle2 className="h-4 w-4 text-green-500" /> : 
+                  <Clock className="h-4 w-4 text-yellow-500" />
+                }
+                <div className="flex-1 text-sm">
+                  <span className="text-muted-foreground">{new Date(prescription.date).toLocaleDateString()}</span>
+                  <span className="mx-2">•</span>
+                  <span>P: {prescription.patient_id}</span>
+                  <span className="mx-2">•</span>
+                  <span>D: {prescription.doctor_id}</span>
+                </div>
+                <div className="flex gap-2">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="ghost" size="icon"><Eye className="h-4 w-4" /></Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Prescription Details</DialogTitle>
+                      </DialogHeader>
+                      <div className="mt-2 text-sm whitespace-pre-wrap">
+                        {prescription.content}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Edit Prescription</DialogTitle>
+                      </DialogHeader>
+                      <Textarea 
+                        value={editPrescription?.content}
+                        onChange={(e) => setEditPrescription({
+                          ...editPrescription,
+                          content: e.target.value
+                        })}
+                        className="min-h-[200px] mt-4"
+                      />
+                      <div className="flex justify-end gap-2 mt-4">
+                        <Button variant="outline" onClick={() => setEditPrescription(null)}>Cancel</Button>
+                        <Button>Save</Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+
+                  <Button variant="ghost" size="icon" className="text-red-500">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     </div>
   );
