@@ -28,6 +28,7 @@ const PrescriptionList = () => {
     doctor_id: 3
   });
   const [deleteConfirmation, setDeleteConfirmation] = useState({ show: false});
+  const [prescriptionContent, setPrescriptionContent] = useState('');
 
   const handleSearch = async () => {
     const query = {
@@ -134,6 +135,27 @@ const PrescriptionList = () => {
     }
   };
 
+  const handleUpdate = async (id) => {
+    console.log('Updating prescription:', id);
+    console.log('Prescription content:', prescriptionContent);
+
+    if (id) {
+        // Update in database
+        await window.electron.db.prescriptions.update({ 
+          _id: id, 
+          content: prescriptionContent
+        });
+
+        // Update in state
+        setPrescriptions(prev => 
+            prev.map(p => p._id === id ? { ...p, content: prescriptionContent, synced: false } : p)
+        );
+
+        setPrescriptionContent('');
+    }
+
+};
+
   useEffect(() => {
     handleSearch();
   }, []);
@@ -209,8 +231,8 @@ const PrescriptionList = () => {
                   </Dialog>
 
                   <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="ghost" size="icon">
+                    <DialogTrigger asChild open={prescriptionContent}>
+                      <Button variant="ghost" size="icon" onClick={()=> setPrescriptionContent(prescription.content)}>
                         <Edit className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>
@@ -219,17 +241,12 @@ const PrescriptionList = () => {
                         <DialogTitle>Edit Prescription</DialogTitle>
                       </DialogHeader>
                       <Textarea 
-                        value={prescription.content}
-                        onChange={(e) => {
-                          setPrescriptions(prev => prev.map(p =>
-                            p._id === prescription._id ? { ...p, content: e.target.value } : p
-                          ));
-                        }}
+                         value={prescriptionContent} 
+                         onChange={(e) => setPrescriptionContent(e.target.value)}
                         className="min-h-[200px] mt-4"
                       />
                       <div className="flex justify-end gap-2 mt-4">
-                        <Button variant="outline">Cancel</Button>
-                        <Button>Save</Button>
+                        <Button type="submit" onClick={()=>{handleUpdate(prescription._id)}}>Save</Button>
                       </div>
                     </DialogContent>
                   </Dialog>

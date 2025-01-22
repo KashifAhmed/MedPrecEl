@@ -45,6 +45,7 @@ async function setupIpcHandlers() {
             ...prescription,
             _id: generateUniqueId(),
             synced: false,
+            action: 'add',
             createdAt: new Date().toISOString()
         };
 
@@ -159,12 +160,15 @@ async function setupIpcHandlers() {
 
     // Update prescription handler
     ipcMain.handle('db-prescription-update', async (event, updatedData) => {
+        
+        console.log('Update content request', JSON.stringify(updatedData))
         try {
             const existingDoc = await db.get(updatedData._id);
             const updatedDoc = {
                 ...existingDoc,
-                ...updatedData,
+                content: updatedData.content,
                 action: 'update',
+                synced:false,
                 lastModified: new Date().toISOString()
             };
             const result = await db.put(updatedDoc);
