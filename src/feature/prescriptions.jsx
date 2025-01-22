@@ -27,76 +27,112 @@ const PrescriptionList = () => {
     patient_id: 16,
     doctor_id: 3
   });
-  const [editPrescription, setEditPrescription] = useState(null);
 
   const handleSearch = async () => {
+    const query = {
+      patient_id: searchFilters.patient_id,
+      doctor_id: searchFilters.doctor_id,
+    };
+   
     try {
-      setLoading(true);
-      const query = {};
-  
-      // Set filter parameters
-      if (searchFilters.patient_id) {
-        query.patient_id = parseInt(searchFilters.patient_id);
+      // Immediately load from local database
+      const localResult = await window.electron.db.prescriptions.search(query);
+      
+      console.log('--- LOCAL RESULT ----')
+      console.log(localResult)
+      if (localResult.success) {
+        setPrescriptions(localResult.data);
+        setLoading(false);
       }
-      if (searchFilters.doctor_id) {
-        query.doctor_id = parseInt(searchFilters.doctor_id);
-      }
-  
-      let allPrescriptions = [];
-      let currentPage = 1;
-      let lastPage = 1;
-  
-      // Fetch records from all pages
-      while (currentPage <= lastPage) {
-        const prescriptionResponse = await api.prescriptions.get({
-          ...query,
-          page: currentPage
-        });
-  
-        // If there are records on the current page, process them
-        if (prescriptionResponse?.data.length > 0) {
-          console.log(`Precription Data length ${prescriptionResponse.data.length} ${currentPage}`)
-          allPrescriptions = [...allPrescriptions, ...prescriptionResponse.data];
-          lastPage = prescriptionResponse.meta?.last_page || 1; // Get last page from meta
-          currentPage++;
-        } else {
-          break; // No more pages, break the loop
+   
+      // Background API fetch and append
+      const fetchAndAppendApiResults = async () => {
+        try {
+          const apiPrescriptions = await fetchPrescriptionsFromAPI(query);
+          
+          // Track unique prescriptions to save
+          const uniquePrescriptionsToSave = [];
+          
+          setPrescriptions(prevPrescriptions => {
+            const seenIds = new Set(prevPrescriptions.map(p => p._id));
+            
+            const newUniquePrescriptions = apiPrescriptions.filter(
+              newPres => {
+                const isUnique = !seenIds.has(newPres._id);
+                if (isUnique) {
+                  uniquePrescriptionsToSave.push(newPres);
+                }
+                return isUnique;
+              }
+            );
+       
+            // Save unique prescriptions to PouchDB
+            uniquePrescriptionsToSave.forEach(async (prescription) => {
+              await window.electron.db.prescriptions.add(prescription);
+            });
+       
+            console.log('Unique New Prescriptions:', uniquePrescriptionsToSave);
+         
+            return [...prevPrescriptions, ...newUniquePrescriptions];
+          });
+        } catch (error) {
+          console.error('Background API fetch error:', error);
         }
-      }
-  
-      // Add all fetched prescriptions to the database
-      for (const prescription of allPrescriptions) {
-        const presDate = new Date(prescription.date);
-        const presObject = {
-          _id: `prec-${prescription.id}`,
-          patient_id: prescription.patient.id,
-          doctor_id: prescription.doctor.id,
-          date: `${presDate.getFullYear()}-${presDate.getMonth() + 1}-${presDate.getDate()}`,
-          content: prescription.content,
-          created_at: prescription.created_at
-        };
-        console.log('ADDING presObject', presObject)
-        const pouchAddRes = await window.electron.db.prescriptions.add(presObject);
-        console.log('Pres pouch res', pouchAddRes);
-      }
-  
-      // Fetch all prescriptions from the database based on the filters
-      const result = await window.electron.db.prescriptions.search(query);
-      console.log('Search result', result);
-      if (result.success) {
-        setPrescriptions(result.data);
-      }
-    } finally {
-      setLoading(false);
+       };
+   
+      // Start background fetch without blocking
+      fetchAndAppendApiResults();
+   
+    } catch (error) {
+      console.error('Search error:', error);
     }
+   };
+  
+  
+  
+  const fetchPrescriptionsFromAPI = async (query) => {
+    let allPrescriptions = [];
+    let currentPage = 1;
+    let lastPage = 1;
+  
+    while (currentPage <= lastPage) {
+      const prescriptionResponse = await api.prescriptions.get({ ...query, page: currentPage });
+  
+      if (prescriptionResponse?.data.length > 0) {
+        allPrescriptions = [...allPrescriptions, ...prescriptionResponse.data];
+        lastPage = prescriptionResponse.meta?.last_page || 1;
+        currentPage++;
+      } else {
+        break;
+      }
+    }
+  
+    const newPrescriptions = allPrescriptions
+      .map((prescription) => ({
+        _id: `prec-${prescription.id}`,
+        patient_id: prescription.patient.id,
+        doctor_id: prescription.doctor.id,
+        date: new Date(prescription.date).toISOString().split("T")[0],
+        content: prescription.content,
+        created_at: prescription.created_at,
+      }))
+      .filter((p) => p.patient_id === query.patient_id && p.doctor_id === query.doctor_id); // Ensure strict filter
+  
+    // Store in local DB and return only matching records
+    for (const presObject of newPrescriptions) {
+      await window.electron.db.prescriptions.add(presObject);
+    }
+  
+    return newPrescriptions;
   };
   
-
+  
+  
+  
   useEffect(() => {
     handleSearch();
   }, []);
 
-  
   if (loading) {
     return <div className="flex justify-center items-center h-64">Loading...</div>;
   }
@@ -139,8 +175,10 @@ const PrescriptionList = () => {
                   <CheckCircle2 className="h-4 w-4 text-green-500" /> : 
                   <Clock className="h-4 w-4 text-yellow-500" />
                 }
+                
+                {}
                 <div className="flex-1 text-sm">
-                <span>#: {index+1}</span>
+                  <span>#: {index+1}</span>
                   <span className="mx-2">•</span>
                   <span className="text-muted-foreground">{new Date(prescription.date).toLocaleDateString()}</span>
                   <span className="mx-2">•</span>
@@ -176,15 +214,16 @@ const PrescriptionList = () => {
                         <DialogTitle>Edit Prescription</DialogTitle>
                       </DialogHeader>
                       <Textarea 
-                        value={editPrescription?.content}
-                        onChange={(e) => setEditPrescription({
-                          ...editPrescription,
-                          content: e.target.value
-                        })}
+                        value={prescription.content}
+                        onChange={(e) => {
+                          setPrescriptions(prev => prev.map(p =>
+                            p._id === prescription._id ? { ...p, content: e.target.value } : p
+                          ));
+                        }}
                         className="min-h-[200px] mt-4"
                       />
                       <div className="flex justify-end gap-2 mt-4">
-                        <Button variant="outline" onClick={() => setEditPrescription(null)}>Cancel</Button>
+                        <Button variant="outline">Cancel</Button>
                         <Button>Save</Button>
                       </div>
                     </DialogContent>

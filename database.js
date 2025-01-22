@@ -3,7 +3,8 @@ const PouchFind = require('pouchdb-find');
 
 // Initialize PouchDB
 PouchDB.plugin(PouchFind);
-let db = new PouchDB('medDB_PrecP');
+let db = new PouchDB('http://127.0.0.1:5984/MedPrecel');
+// let db = new PouchDB('medDB_PrecP');
 
 async function initializeDatabase() {
   try {

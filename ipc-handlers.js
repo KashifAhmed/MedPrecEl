@@ -59,17 +59,64 @@ async function setupIpcHandlers() {
 
     // Handler for adding prescriptions with conflict resolution
     ipcMain.handle('db-prescription-add', async (event, prescription) => {
-        const documentToAdd = {
+        const db = getDatabase();
+        const newDoc = {
             ...prescription,
             synced: true,
             lastModified: new Date().toISOString()
         };
-
+    
         try {
-            const result = await db.put(documentToAdd);
-            return { success: true, id: result.id };
+            const result = await db.put(newDoc);
+            
+            // Ensure document is saved by fetching it back
+            const savedDoc = await db.get(result.id);
+            
+            return { 
+                success: true, 
+                id: result.id,
+                doc: savedDoc 
+            };
         } catch (error) {
-            return await handleDocumentAddConflict(db, error, documentToAdd);
+            if (error.status === 409) {
+                try {
+                    // Fetch conflicting document
+                    const existingDoc = await db.get(newDoc._id, { conflicts: true });
+    
+                    // Merge documents
+                    const mergedDoc = {
+                        ...existingDoc,
+                        ...newDoc,
+                        createdAt: existingDoc.createdAt,
+                        _conflicts: [
+                            ...(existingDoc._conflicts || []),
+                            newDoc._rev
+                        ],
+                        lastConflictResolved: new Date().toISOString()
+                    };
+    
+                    // Force put with merged document
+                    const resolveResult = await db.put(mergedDoc, { force: true });
+                    
+                    // Fetch the saved merged document
+                    const savedMergedDoc = await db.get(resolveResult.id);
+    
+                    return { 
+                        success: true, 
+                        id: resolveResult.id,
+                        doc: savedMergedDoc,
+                        conflictResolved: true 
+                    };
+                } catch (conflictError) {
+                    console.error('Conflict resolution failed:', conflictError);
+                    return { 
+                        success: false, 
+                        error: 'Conflict resolution failed',
+                        details: conflictError.message 
+                    };
+                }
+            }
+            return { success: false, error: error.message };
         }
     });
 
@@ -78,10 +125,11 @@ async function setupIpcHandlers() {
         try {
             const selector = buildSearchSelector(query);
             const result = await db.find({ selector });
-            
-            return { 
-                success: true, 
-                data: result.docs 
+
+            console.log(`db-prescription-search count ${result.docs.length} query: ${JSON.stringify(query)}`)
+            return {
+                success: true,
+                data: result.docs,
             };
         } catch (error) {
             console.error('Prescription search failed:', error);
@@ -131,30 +179,14 @@ async function handleDocumentCreationConflict(db, error, document) {
     return { success: false, error: error.message };
 }
 
-async function handleDocumentAddConflict(db, error, document) {
-    if (error.status === 409) {
-        try {
-            const existingDocument = await db.get(error.id, { conflicts: true });
-            return await resolveDocumentConflict(db, existingDocument, document);
-        } catch (conflictError) {
-            console.error('Add conflict handling failed:', conflictError);
-            return {
-                success: false,
-                error: 'Conflict resolution failed',
-                details: conflictError.message
-            };
-        }
-    }
-    return { success: false, error: error.message };
-}
 
 function buildSearchSelector(query) {
     const selector = {};
-    
+
     if (query.patient_id) {
         selector.patient_id = parseInt(query.patient_id);
     }
-    
+
     if (query.doctor_id) {
         selector.doctor_id = parseInt(query.doctor_id);
     }
@@ -183,7 +215,7 @@ function saveTokenToFile(token) {
 function retrieveTokenFromFile() {
     try {
         const tokenPath = path.join(app.getPath('userData'), 'token.json');
-        return fs.existsSync(tokenPath) 
+        return fs.existsSync(tokenPath)
             ? JSON.parse(fs.readFileSync(tokenPath, 'utf8'))
             : { token: null };
     } catch (error) {

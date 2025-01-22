@@ -6,6 +6,7 @@ const { getDatabase } = require('./database');
 let syncInProgress = false;
 
 async function syncToServer() {
+  return
   if (syncInProgress) return;
   
   const db = getDatabase();

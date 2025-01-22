@@ -2,6 +2,8 @@ const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
+require("dotenv").config();
+
 const { initializeIpcHandlers } = require('./ipc-handlers');
 const { setupAppLifecycle } = require('./app-lifecycle');
 const { startPeriodicSync } = require('./sync-service');
