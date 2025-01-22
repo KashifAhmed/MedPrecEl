@@ -1,7 +1,6 @@
-import { LoginCredentials, LoginResponse, Patient, Prescription } from '../types';
+import { LoginCredentials, LoginResponse, Prescription } from '../types';
 
-const API_URL = 'https://stage.app.medlucy.com/api';
-
+const API_URL = import.meta.env.VITE_API_URL;
 interface RequestOptions extends RequestInit {
   headers?: HeadersInit;
 }

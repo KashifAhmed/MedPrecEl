@@ -4,6 +4,8 @@ const fs = require('fs');
 const PouchDB = require('pouchdb');
 const PouchFind = require('pouchdb-find');
 
+require('dotenv').config();
+
 // Initialize PouchDB
 PouchDB.plugin(PouchFind);
 let db = new PouchDB('medDB_PrecP');
@@ -61,7 +63,7 @@ async function syncToServer() {
           patient_id: doc.patient_id
         };
 
-        const response = await fetch('https://stage.app.medlucy.com/api/prescriptions', {
+        const response = await fetch(`${process.env.VITE_API_URL}/prescriptions`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

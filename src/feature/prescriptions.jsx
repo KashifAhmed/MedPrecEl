@@ -45,9 +45,7 @@ const PrescriptionList = () => {
               window.electron.db.prescriptions.add(presObject);
 
             })
-          } else {
-            throw new Error(prescriptionResponse.error);
-          }
+          } 
           
           console.log(prescriptionResponse);
         } catch (err) {
