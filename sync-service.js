@@ -40,7 +40,12 @@ async function syncToServer() {
           if (response.status != 204) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
-          await db.remove(doc._id, doc._rev);
+
+          const item = await db.get(doc._id);
+          await db.put({
+            ...item,
+            _deleted: true
+          });
         } else if (!doc.synced && doc.action === 'update') {
           const response = await fetch(`${process.env.VITE_API_URL}/prescriptions/${doc._id.replace('prec-', '')}`, {
             method: 'PUT',
@@ -50,13 +55,23 @@ async function syncToServer() {
             },
             body: JSON.stringify({ content: doc.content })
           });
-          
-          if(response.status != 200) {
+          console.log('doc', doc)
+          console.log("RESPONSE", response);
+          if (response.status != 200) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
 
+          // Update the PouchDB entry once the update is successful
+          const updatedDoc = {
+            ...doc,
+            synced: true,
+            action: 'none',
+            lastModified: new Date().toISOString() // Optional: record the time of the update
+          };
           
-
+          // Put the updated doc back in PouchDB
+          const updatedRev = await db.put(updatedDoc);
+          console.log(`Synced document (update): ${doc._id}`, updatedRev);
         } else if (!doc.synced && doc.action === 'add') {
           const body = {
             content: doc.content,
@@ -77,8 +92,8 @@ async function syncToServer() {
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
-          console.log("SUCCSSFULLY SAVE NEW RECORD")
-          console.log("RESPONSE", JSON.stringify(body))
+          console.log("SUCCSSFULLY SAVE NEW RECORD");
+          console.log("RESPONSE", JSON.stringify(body));
           const responseData = await response.json();
           if (responseData.id) {
             await db.put({
@@ -86,7 +101,7 @@ async function syncToServer() {
               synced: true,
               _rev: doc._rev
             });
-            console.log('Synced document:', doc._id);
+            console.log('Synced document (add):', doc._id);
           }
         }
       }
@@ -99,6 +114,7 @@ async function syncToServer() {
     syncInProgress = false;
   }
 }
+
 
 function startSync() {
   if (!syncInProgress) {
