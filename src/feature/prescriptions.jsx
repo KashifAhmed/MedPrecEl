@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import api from '../api';
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
@@ -24,8 +24,8 @@ const PrescriptionList = () => {
   const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchFilters, setSearchFilters] = useState({
-    patient_id: '',
-    doctor_id: ''
+    patient_id: 16,
+    doctor_id: 3
   });
   const [editPrescription, setEditPrescription] = useState(null);
 
@@ -33,33 +33,56 @@ const PrescriptionList = () => {
     try {
       setLoading(true);
       const query = {};
-      
+  
+      // Set filter parameters
       if (searchFilters.patient_id) {
         query.patient_id = parseInt(searchFilters.patient_id);
       }
       if (searchFilters.doctor_id) {
         query.doctor_id = parseInt(searchFilters.doctor_id);
       }
-
-      if (query.patient_id && query.doctor_id) {
-        const prescriptionResponse = await api.prescriptions.get(query);
+  
+      let allPrescriptions = [];
+      let currentPage = 1;
+      let lastPage = 1;
+  
+      // Fetch records from all pages
+      while (currentPage <= lastPage) {
+        const prescriptionResponse = await api.prescriptions.get({
+          ...query,
+          page: currentPage
+        });
+  
+        // If there are records on the current page, process them
         if (prescriptionResponse?.data.length > 0) {
-          prescriptionResponse?.data.forEach(prescription => {
-            const presDate = new Date(prescription.date);
-            const presObject = {
-              _id: `prec-${prescription.id}`,
-              patient_id: prescription.patient.id,
-              doctor_id: prescription.doctor.id,
-              date: `${presDate.getFullYear()}-${presDate.getMonth()+1}-${presDate.getDate()}`,
-              content: prescription.content,
-              created_at: prescription.created_at
-            };
-            window.electron.db.prescriptions.add(presObject);
-          });
+          console.log(`Precription Data length ${prescriptionResponse.data.length} ${currentPage}`)
+          allPrescriptions = [...allPrescriptions, ...prescriptionResponse.data];
+          lastPage = prescriptionResponse.meta?.last_page || 1; // Get last page from meta
+          currentPage++;
+        } else {
+          break; // No more pages, break the loop
         }
       }
-      
+  
+      // Add all fetched prescriptions to the database
+      for (const prescription of allPrescriptions) {
+        const presDate = new Date(prescription.date);
+        const presObject = {
+          _id: `prec-${prescription.id}`,
+          patient_id: prescription.patient.id,
+          doctor_id: prescription.doctor.id,
+          date: `${presDate.getFullYear()}-${presDate.getMonth() + 1}-${presDate.getDate()}`,
+          content: prescription.content,
+          created_at: prescription.created_at
+        };
+        console.log('ADDING presObject', presObject)
+        const pouchAddRes = await window.electron.db.prescriptions.add(presObject);
+        console.log('Pres pouch res', pouchAddRes);
+      }
+  
+      // Fetch all prescriptions from the database based on the filters
       const result = await window.electron.db.prescriptions.search(query);
+      console.log('Search result', result);
       if (result.success) {
         setPrescriptions(result.data);
       }
@@ -67,11 +90,13 @@ const PrescriptionList = () => {
       setLoading(false);
     }
   };
+  
 
   useEffect(() => {
     handleSearch();
   }, []);
 
+  
   if (loading) {
     return <div className="flex justify-center items-center h-64">Loading...</div>;
   }
@@ -99,11 +124,14 @@ const PrescriptionList = () => {
               <Search className="h-4 w-4" />
             </Button>
           </div>
+          <div className="mt-2 text-sm text-gray-500">
+            {prescriptions.length} prescriptions found
+          </div>
         </CardContent>
       </Card>
 
       <div className="space-y-2">
-        {prescriptions.map((prescription) => (
+        {prescriptions.map((prescription, index) => (
           <Card key={prescription._id}>
             <CardContent className="p-4">
               <div className="flex items-center gap-4">
@@ -112,11 +140,15 @@ const PrescriptionList = () => {
                   <Clock className="h-4 w-4 text-yellow-500" />
                 }
                 <div className="flex-1 text-sm">
+                <span>#: {index+1}</span>
+                  <span className="mx-2">•</span>
                   <span className="text-muted-foreground">{new Date(prescription.date).toLocaleDateString()}</span>
                   <span className="mx-2">•</span>
                   <span>P: {prescription.patient_id}</span>
                   <span className="mx-2">•</span>
                   <span>D: {prescription.doctor_id}</span>
+                  <span className="mx-2">•</span>
+                  <span>Pres_ID: {prescription._id}</span>
                 </div>
                 <div className="flex gap-2">
                   <Dialog>

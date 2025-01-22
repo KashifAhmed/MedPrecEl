@@ -62,7 +62,7 @@ const api = {
       }),
   },
   prescriptions: {
-    get: (query: {doctor_id: number, patient_id: number}) => api.request<Prescription[]>(`/prescriptions?patient_id=${query.patient_id}&doctor_id=${query.doctor_id}`)
+    get: (query: {doctor_id: number, patient_id: number, page: number}) => api.request<Prescription[]>(`/prescriptions?patient_id=${query.patient_id}&doctor_id=${query.doctor_id}&page=${query.page}`)
   },
 };
 
