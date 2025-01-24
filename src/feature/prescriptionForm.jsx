@@ -21,6 +21,10 @@ const PrescriptionForm = () => {
     setError(null);
 
     try {
+
+      prescriptionData.patient_id = Number(prescriptionData.patient_id);
+      prescriptionData.doctor_id = Number(prescriptionData.doctor_id);
+
       const result = await window.electron.db.prescriptions.create(prescriptionData);
 
       if (result.success) {
@@ -43,11 +47,10 @@ const PrescriptionForm = () => {
     }
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+  const handleChange = (key, value) => {
     setPrescriptionData(prev => ({
       ...prev,
-      [name]: name.includes('id') ? Number(value) : value
+      [key] : value
     }));
   };
 
@@ -71,7 +74,7 @@ const PrescriptionForm = () => {
               type="number"
               name="patient_id"
               value={prescriptionData.patient_id}
-              onChange={handleChange}
+              onChange={(e)=> handleChange('patient_id', e.target.value)}
               className="w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
               required
             />
@@ -83,9 +86,9 @@ const PrescriptionForm = () => {
             </label>
             <input
               type="number"
-              name="patient_id"
+              name="doctor_id"
               value={prescriptionData.doctor_id}
-              onChange={handleChange}
+              onChange={(e)=> handleChange('doctor_id', e.target.value)}
               className="w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
               required
             />
@@ -99,7 +102,7 @@ const PrescriptionForm = () => {
               type="date"
               name="date"
               value={prescriptionData.date}
-              onChange={handleChange}
+              onChange={(e)=> handleChange('date', e.target.value)}
               className="w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
               required
             />
@@ -112,7 +115,7 @@ const PrescriptionForm = () => {
             <textarea
               name="content"
               value={prescriptionData.content}
-              onChange={handleChange}
+              onChange={(e)=> handleChange('content', e.target.value)}
               className="w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500 h-32"
               required
             />
