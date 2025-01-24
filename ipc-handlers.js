@@ -125,7 +125,10 @@ async function setupIpcHandlers() {
     ipcMain.handle('db-prescription-search', async (event, query) => {
         try {
             const selector = buildSearchSelector(query);
-            const result = await db.find({ selector });
+            const result = await db.find({ 
+                selector,
+                // limit: Infinity 
+            });
 
             console.log(`db-prescription-search count ${result.docs.length} query: ${JSON.stringify(query)}`)
             return {
