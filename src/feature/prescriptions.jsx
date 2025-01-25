@@ -30,13 +30,17 @@ const PrescriptionList = () => {
   });
   const [deleteConfirmation, setDeleteConfirmation] = useState({ show: false });
   const [prescriptionContent, setPrescriptionContent] = useState('');
-
+  const [filterQuery, setFilterQuery] = useState({
+    patient_id: 16,
+    doctor_id: 4
+  })
   const handleSearch = useCallback(async () => {
     const query = {
       patient_id: Number(searchFilters.patient_id),
       doctor_id: Number(searchFilters.doctor_id),
     };
 
+    setFilterQuery(query)
     setPrescriptions([]);
     setLoading(true);
 
@@ -203,15 +207,14 @@ const PrescriptionList = () => {
 
       <div className="space-y-2">
         {prescriptions.map((prescription, index) => (
-          <Card key={prescription._id}>
+          (filterQuery.doctor_id === prescription.doctor_id && filterQuery.patient_id === prescription.patient_id) && (
+            <Card key={prescription._id}>
             <CardContent className="p-4">
               <div className="flex items-center gap-4">
                 {prescription.synced ?
                   <CheckCircle2 className="h-4 w-4 text-green-500" /> :
                   <Clock className="h-4 w-4 text-yellow-500" />
                 }
-
-                { }
                 <div className="flex-1 text-sm">
                   <span>#: {index + 1}</span>
                   <span className="mx-2">•</span>
@@ -280,6 +283,8 @@ const PrescriptionList = () => {
               </div>
             </CardContent>
           </Card>
+          )
+         
         ))}
       </div>
     </div>
