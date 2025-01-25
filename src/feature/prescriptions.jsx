@@ -57,43 +57,8 @@ const PrescriptionList = () => {
         setLoading(false);
       }
 
-      // Background API fetch
-      const fetchAndAppendApiResults = async () => {
-        try {
-          console.log('Background API fetch started');
-          const apiPrescriptions = await fetchPrescriptionsFromAPI(query);
-
-          const uniquePrescriptionsToSave = [];
-
-          setPrescriptions(prevPrescriptions => {
-            const seenIds = new Set(prevPrescriptions.map(p => p._id));
-
-            const newUniquePrescriptions = apiPrescriptions.filter(
-              newPres => {
-                const isUnique = !seenIds.has(newPres._id);
-                if (isUnique) {
-                  uniquePrescriptionsToSave.push(newPres);
-                }
-                return isUnique;
-              }
-            );
-
-            // Save unique prescriptions to PouchDB
-            uniquePrescriptionsToSave.forEach(async (prescription) => {
-              await window.electron.db.prescriptions.add(prescription);
-            });
-
-            console.log('Unique New Prescriptions:', uniquePrescriptionsToSave);
-
-            return [...prevPrescriptions, ...newUniquePrescriptions];
-          });
-        } catch (error) {
-          console.error('Background API fetch error:', error);
-        }
-      };
-
-      fetchAndAppendApiResults();
-
+      await fetchPrescriptionsFromAPI(query);
+    
     } catch (error) {
       console.error('Search error:', error);
     }
@@ -103,12 +68,50 @@ const PrescriptionList = () => {
     let allPrescriptions = [];
     let currentPage = 1;
     let lastPage = 1;
+    const uniquePrescriptionsToSave = [];
 
     while (currentPage <= lastPage) {
       const prescriptionResponse = await api.prescriptions.get({ ...query, page: currentPage });
 
       if (prescriptionResponse?.data.length > 0) {
         allPrescriptions = [...allPrescriptions, ...prescriptionResponse.data];
+        
+        const newPrescriptions = allPrescriptions
+          .map((prescription) => ({
+            _id: `prec-${prescription.id}`,
+            patient_id: prescription.patient.id,
+            doctor_id: prescription.doctor.id,
+            date: new Date(prescription.date).toISOString().split("T")[0],
+            content: prescription.content,
+            created_at: prescription.created_at,
+            synced: true
+          }))
+          .filter((p) => p.patient_id === query.patient_id && p.doctor_id === query.doctor_id); // Ensure strict filter
+
+        setPrescriptions(prevPrescriptions => {
+          const seenIds = new Set(prevPrescriptions.map(p => p._id));
+
+          const newUniquePrescriptions = newPrescriptions.filter(
+            newPres => {
+              const isUnique = !seenIds.has(newPres._id);
+              if (isUnique) {
+                uniquePrescriptionsToSave.push(newPres);
+              }
+              return isUnique;
+            }
+          );
+
+          // Save unique prescriptions to PouchDB
+          uniquePrescriptionsToSave.forEach(async (prescription) => {
+            await window.electron.db.prescriptions.add(prescription);
+          });
+
+          console.log('Unique New Prescriptions:', uniquePrescriptionsToSave);
+
+          return [...prevPrescriptions, ...newUniquePrescriptions];
+        });
+
+
         lastPage = prescriptionResponse.meta?.last_page || 1;
         currentPage++;
       } else {
@@ -116,23 +119,9 @@ const PrescriptionList = () => {
       }
     }
 
-    const newPrescriptions = allPrescriptions
-      .map((prescription) => ({
-        _id: `prec-${prescription.id}`,
-        patient_id: prescription.patient.id,
-        doctor_id: prescription.doctor.id,
-        date: new Date(prescription.date).toISOString().split("T")[0],
-        content: prescription.content,
-        created_at: prescription.created_at,
-      }))
-      .filter((p) => p.patient_id === query.patient_id && p.doctor_id === query.doctor_id); // Ensure strict filter
+    
 
-    // Store in local DB and return only matching records
-    for (const presObject of newPrescriptions) {
-      await window.electron.db.prescriptions.add(presObject);
-    }
-
-    return newPrescriptions;
+    return true;
   };
 
   const handleDelete = async (id) => {
